@@ -10,12 +10,6 @@ BEGIN
 END;
 $BODY$ LANGUAGE plpgsql PARALLEL SAFE;
 
--- DROP FUNCTION IF EXISTS analyze_query(TEXT);
--- CREATE FUNCTION analyze_query(sql_query TEXT) RETURNS VOID AS
--- $BODY$
--- BEGIN
---   -- CREATE TEMP TABLE exp AS SELECT * FROM explain_wrapper(sql_query);
-
 DROP FUNCTION IF EXISTS first_occurence_not_null(INT[]);
 CREATE FUNCTION first_occurence_not_null(arr INT[]) RETURNS INT AS
 $BODY$
@@ -33,10 +27,8 @@ END;
 $BODY$ LANGUAGE plpgsql PARALLEL SAFE;
 
 DROP FUNCTION IF EXISTS parse_explain_plan(JSON);
-CREATE FUNCTION parse_explain_plan(in_plan JSON) RETURNS VOID AS
+CREATE FUNCTION parse_explain_plan(in_plan JSON) RETURNS TABLE(plan_id UUID) AS
 $BODY$
-DECLARE
-  plan_uuid UUID;
 BEGIN
   DROP TABLE IF EXISTS local_query_node_stats;
   CREATE TEMP TABLE local_query_node_stats AS
@@ -118,53 +110,57 @@ BEGIN
   FROM own
   WHERE local_query_node_stats.id = own.id;
 
-  INSERT INTO query_node_stats
-  SELECT
-      nextval('query_node_stats_id_seq'::regclass)
-    , (SELECT uuid_in(md5(random()::text || clock_timestamp()::text)::cstring))
-    , id
-    , "Node Type"
-    , "Custom Plan Provider"
-    , "Partial Mode"
-    , "Relation Name"
-    , "Startup Cost"
-    , "Total Cost"
-    , "Own Cost"
-    , "Actual Startup Time"
-    , "Actual Total Time"
-    , "Own Time"
-    , "Actual Loops"
-    , "Plan Rows"
-    , "Actual Rows"
-    , "Plan Width"
-    , "Workers Planned"
-    , "Workers Launched"
-    , "Parallel Aware"
-    , "Group Key"
-    , "Filter"
-    , "Rows Removed by Filter"
-    , "Sort Key"
-    , "Sort Method"
-    , "Sort Space Used"
-    , "Sort Space Type"
-    , "Join Type"
-    , "Inner Unique"
-    , "Join Filter"
-    , "Hash Cond"
-    , "Merge Cond"
-    , "Rows Removed by Join Filter"
-    , "Scan Direction"
-    , "Index Name"
-    , "Alias"
-    , "Single Copy"
-    , "Hash Buckets"
-    , "Original Hash Buckets"
-    , "Hash Batches"
-    , "Original Hash Batches"
-    , "Peak Memory Usage"
-    , "Parallel Workers"
-    , "Gather Node Depth"
-  FROM local_query_node_stats;
+  RETURN QUERY
+  WITH new_stats AS(
+    INSERT INTO query_node_stats
+    SELECT
+        nextval('query_node_stats_id_seq'::regclass)
+      , (SELECT uuid_in(md5(random()::text || clock_timestamp()::text)::cstring))
+      , id
+      , "Node Type"
+      , "Custom Plan Provider"
+      , "Partial Mode"
+      , "Relation Name"
+      , "Startup Cost"
+      , "Total Cost"
+      , "Own Cost"
+      , "Actual Startup Time"
+      , "Actual Total Time"
+      , "Own Time"
+      , "Actual Loops"
+      , "Plan Rows"
+      , "Actual Rows"
+      , "Plan Width"
+      , "Workers Planned"
+      , "Workers Launched"
+      , "Parallel Aware"
+      , "Group Key"
+      , "Filter"
+      , "Rows Removed by Filter"
+      , "Sort Key"
+      , "Sort Method"
+      , "Sort Space Used"
+      , "Sort Space Type"
+      , "Join Type"
+      , "Inner Unique"
+      , "Join Filter"
+      , "Hash Cond"
+      , "Merge Cond"
+      , "Rows Removed by Join Filter"
+      , "Scan Direction"
+      , "Index Name"
+      , "Alias"
+      , "Single Copy"
+      , "Hash Buckets"
+      , "Original Hash Buckets"
+      , "Hash Batches"
+      , "Original Hash Batches"
+      , "Peak Memory Usage"
+      , "Parallel Workers"
+      , "Gather Node Depth"
+    FROM local_query_node_stats
+    RETURNING query_node_stats.plan_id AS plan_id
+  ) SELECT new_stats.plan_id FROM new_stats GROUP BY 1;
 END;
 $BODY$ LANGUAGE plpgsql PARALLEL SAFE;
 
