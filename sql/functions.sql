@@ -35,7 +35,10 @@ BEGIN
   WITH RECURSIVE t(subplans, parallel_workers_arr) AS (
     SELECT
         subplans.* AS subplans
-      , '{NULL}'::INT[] AS parallel_workers_arr
+      , array_append('{}'::INT[], (SELECT COALESCE(
+          (in_plan->0->'Plan'->>'Workers Launched')::INT,
+          (in_plan->0->'Plan'->>'Workers Planned')::INT
+        )))
     FROM json_array_elements((SELECT in_plan->0->'Plan'->'Plans')) subplans
     UNION ALL
     SELECT
@@ -90,17 +93,26 @@ BEGIN
       SELECT
           id
         , ROUND(COALESCE("Total Cost" - x.child_cost, "Total Cost")::NUMERIC, 2) AS own_cost
-        , ROUND(COALESCE(
-              "Actual Total Time" * CASE WHEN "Parallel Aware" THEN 1 ELSE "Actual Loops" END - x.child_time
+        , GREATEST(0, ROUND(COALESCE(
+              "Actual Total Time" *
+                CASE
+                  WHEN ("Parallel Workers" IS NOT NULL) THEN 1
+                  ELSE "Actual Loops"
+                END - x.child_time
             , "Actual Total Time"
-          )::NUMERIC, 2) AS own_time
+          )::NUMERIC, 2)) AS own_time
         , x.child_cost AS child_cost
         , "Custom Plan Provider" ILIKE '%s64%shuffle%' AS is_shuffle
       FROM local_query_node_stats
       LEFT JOIN LATERAL(
         SELECT
             SUM("Total Cost") AS child_cost
-          , SUM("Actual Total Time" * CASE WHEN "Parallel Aware" THEN 1 ELSE "Actual Loops" END) AS child_time
+          , SUM("Actual Total Time" *
+              CASE
+                WHEN ("Parallel Workers" IS NOT NULL) THEN 1
+                ELSE "Actual Loops"
+              END
+            ) AS child_time
         FROM json_populate_recordset(null::exp_type, local_query_node_stats."Plans")
       ) x ON true
     ) cost_calc
@@ -162,7 +174,7 @@ BEGIN
     RETURNING query_node_stats.plan_id AS plan_id
   ) SELECT new_stats.plan_id FROM new_stats GROUP BY 1;
 END;
-$BODY$ LANGUAGE plpgsql PARALLEL SAFE;
+$BODY$ LANGUAGE plpgsql;
 
 -- SELECT analyze_query($$
 --   select
