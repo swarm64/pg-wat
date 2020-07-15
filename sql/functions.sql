@@ -26,8 +26,8 @@ BEGIN
 END;
 $BODY$ LANGUAGE plpgsql PARALLEL SAFE;
 
-DROP FUNCTION IF EXISTS parse_explain_plan(JSON);
-CREATE FUNCTION parse_explain_plan(in_plan JSON) RETURNS TABLE(plan_id UUID) AS
+DROP FUNCTION IF EXISTS parse_explain_plan(VARCHAR, JSON);
+CREATE FUNCTION parse_explain_plan(in_name VARCHAR, in_plan JSON) RETURNS TABLE(plan_id UUID) AS
 $BODY$
 BEGIN
   DROP TABLE IF EXISTS local_query_node_stats;
@@ -127,6 +127,7 @@ BEGIN
     INSERT INTO query_node_stats
     SELECT
         nextval('query_node_stats_id_seq'::regclass)
+      , in_name
       , (SELECT uuid_in(md5(random()::text || clock_timestamp()::text)::cstring))
       , id
       , "Node Type"
