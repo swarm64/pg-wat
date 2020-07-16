@@ -36,6 +36,7 @@ CREATE TABLE query_node_stats(
   , rows_removed_by_join_filter BIGINT
   , scan_direction VARCHAR
   , index_name VARCHAR
+  , index_used VARCHAR
   , alias VARCHAR
   , single_copy BOOL
   , hash_buckets BIGINT
@@ -45,6 +46,7 @@ CREATE TABLE query_node_stats(
   , peak_memory_usage BIGINT
   , parallel_workers INT
   , gather_node_depth INT
+  , output VARCHAR[]
 );
 
 
@@ -81,6 +83,7 @@ CREATE TYPE exp_type AS(
   , "Rows Removed by Join Filter" BIGINT
   , "Scan Direction" VARCHAR
   , "Index Name" VARCHAR
+  , "Index Used" VARCHAR
   , "Alias" VARCHAR
   , "Single Copy" BOOL
   , "Hash Buckets" BIGINT
@@ -88,5 +91,6 @@ CREATE TYPE exp_type AS(
   , "Hash Batches" BIGINT
   , "Original Hash Batches" BIGINT
   , "Peak Memory Usage" BIGINT
+  , "Output" VARCHAR[]
   , "Plans" JSON
 );

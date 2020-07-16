@@ -162,6 +162,7 @@ BEGIN
       , "Rows Removed by Join Filter"
       , "Scan Direction"
       , "Index Name"
+      , "Index Used"
       , "Alias"
       , "Single Copy"
       , "Hash Buckets"
@@ -171,29 +172,9 @@ BEGIN
       , "Peak Memory Usage"
       , "Parallel Workers"
       , "Gather Node Depth"
+      , "Output"
     FROM local_query_node_stats
     RETURNING query_node_stats.plan_id AS plan_id
   ) SELECT new_stats.plan_id FROM new_stats GROUP BY 1;
 END;
 $BODY$ LANGUAGE plpgsql;
-
--- SELECT analyze_query($$
---   select
---     100.00 * sum(case
---         when p_type like 'PROMO%'
---             then l_extendedprice * (1 - l_discount)
---         else 0
---     end) / sum(l_extendedprice * (1 - l_discount)) as promo_revenue
---   from
---     lineitem,
---     part
---   where
---     l_partkey = p_partkey
---     and l_shipdate >= date '1996-06-01'
---     and l_shipdate < date '1996-06-01' + interval '1' month
--- $$);
-
--- -- SELECT "Node Type", "Custom Plan Provider", "Partial Mode", "Parallel Aware", "Actual Loops", "Workers Planned", "Workers Launched", "Own Cost", "Own Time", "Actual Startup Time"
--- SELECT *
--- FROM query_node_stats
--- ORDER BY "Own Time" DESC;
