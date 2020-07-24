@@ -106,13 +106,13 @@ BEGIN
       FROM local_query_node_stats
       LEFT JOIN LATERAL(
         SELECT
-            SUM("Total Cost") AS child_cost
-          , SUM("Actual Total Time" *
+            COALESCE(SUM("Total Cost"), 0) AS child_cost
+          , COALESCE(SUM("Actual Total Time" *
               CASE
                 WHEN ("Parallel Workers" IS NOT NULL) THEN 1
                 ELSE "Actual Loops"
               END
-            ) AS child_time
+            ), 0) AS child_time
         FROM json_populate_recordset(null::exp_type, local_query_node_stats."Plans")
       ) x ON true
     ) cost_calc
