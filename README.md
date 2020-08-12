@@ -22,7 +22,5 @@ The table can be used to calculate statistics around queries and their plans.
     );
     ```
 
-   Please note, that the json needs to be wrapped in `[...]`.
-
 3. After using `pgwat.parse_explain_plan`, you can query
    `pgwat.query_node_stats` to extract all information you need.

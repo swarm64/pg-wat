@@ -37,7 +37,16 @@ $BODY$ LANGUAGE plpgsql PARALLEL SAFE;
 
 CREATE FUNCTION parse_explain_plan(in_name VARCHAR, in_plan JSON) RETURNS TABLE(plan_id UUID) AS
 $BODY$
+DECLARE
+  plan JSON;
 BEGIN
+  SELECT
+    CASE
+      WHEN json_typeof(in_plan) = 'array' THEN in_plan
+      WHEN json_typeof(in_plan) = 'array' THEN json_build_array(in_plan)
+    END
+  INTO plan;
+
   DROP TABLE IF EXISTS local_query_node_stats;
   CREATE TEMP TABLE local_query_node_stats AS
   WITH RECURSIVE t(subplans, unroll_helper_arr) AS (
@@ -47,13 +56,13 @@ BEGIN
             NULL::INT
           , (SELECT
               COALESCE(
-                  (in_plan->0->'Plan'->>'Workers Launched')::INT
-                , (in_plan->0->'Plan'->>'Workers Planned')::INT
+                  (plan->0->'Plan'->>'Workers Launched')::INT
+                , (plan->0->'Plan'->>'Workers Planned')::INT
               )::INT
             )
           )::T_UNROLL_HELPER
         )
-    FROM json_array_elements((SELECT in_plan->0->'Plan'->'Plans')) subplans
+    FROM json_array_elements((SELECT plan->0->'Plan'->'Plans')) subplans
     UNION ALL
     SELECT
         subplans
@@ -82,7 +91,7 @@ BEGIN
     , (SELECT gather_node_id FROM first_occurence_not_null(unroll_helper_arr) LIMIT 1) AS "Gather Node Id"
   FROM (
     SELECT
-        json_populate_record(null::exp_type, in_plan->0->'Plan') AS rec
+        json_populate_record(null::exp_type, plan->0->'Plan') AS rec
       , '{NULL}'::T_UNROLL_HELPER[] AS unroll_helper_arr
     UNION ALL
     SELECT
