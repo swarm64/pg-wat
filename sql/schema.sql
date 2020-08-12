@@ -1,4 +1,3 @@
-DROP TABLE IF EXISTS query_node_stats;
 CREATE TABLE query_node_stats(
     id BIGSERIAL PRIMARY KEY
   , query_name VARCHAR(100)
@@ -45,12 +44,10 @@ CREATE TABLE query_node_stats(
   , original_hash_batches BIGINT
   , peak_memory_usage BIGINT
   , parallel_workers INT
-  , gather_node_depth INT
+  , gather_node_id INT
   , output VARCHAR[]
 );
 
-
-DROP TYPE IF EXISTS exp_type;
 CREATE TYPE exp_type AS(
     "Node Type" VARCHAR(100)
   , "Custom Plan Provider" VARCHAR(100)

@@ -1,4 +1,3 @@
-DROP FUNCTION IF EXISTS explain_wrapper(TEXT, BOOL);
 CREATE FUNCTION explain_wrapper(sql_query TEXT, run_analyze BOOL) RETURNS TABLE(plan JSON) AS
 $BODY$
 BEGIN
@@ -10,47 +9,66 @@ BEGIN
 END;
 $BODY$ LANGUAGE plpgsql PARALLEL SAFE;
 
-DROP FUNCTION IF EXISTS first_occurence_not_null(INT[]);
-CREATE FUNCTION first_occurence_not_null(arr INT[]) RETURNS INT AS
+CREATE TYPE T_UNROLL_HELPER AS (
+    gather_node_id INT
+  , parallel_workers INT
+);
+
+CREATE FUNCTION first_occurence_not_null(arr T_UNROLL_HELPER[]) RETURNS T_UNROLL_HELPER AS
 $BODY$
 DECLARE
   item RECORD;
 BEGIN
-  FOR item IN (SELECT elem, pos FROM UNNEST(arr) WITH ORDINALITY AS t(elem, pos))
-  LOOP
-    IF item.elem IS NOT NULL THEN
-      RETURN item.pos;
+  FOR item IN (
+    SELECT
+        t.idx -- this is the actual gather_node_id
+      , t.parallel_workers
+    FROM UNNEST(arr)
+    WITH ORDINALITY AS t(_, parallel_workers, idx)
+  ) LOOP
+    IF item.parallel_workers IS NOT NULL THEN
+      RETURN (item.idx, item.parallel_workers)::T_UNROLL_HELPER;
     END IF;
   END LOOP;
-  RETURN NULL;
+
+  RETURN (NULL::INT, NULL::INT)::T_UNROLL_HELPER;
 END;
 $BODY$ LANGUAGE plpgsql PARALLEL SAFE;
 
-DROP FUNCTION IF EXISTS parse_explain_plan(VARCHAR, JSON);
 CREATE FUNCTION parse_explain_plan(in_name VARCHAR, in_plan JSON) RETURNS TABLE(plan_id UUID) AS
 $BODY$
 BEGIN
   DROP TABLE IF EXISTS local_query_node_stats;
   CREATE TEMP TABLE local_query_node_stats AS
-  WITH RECURSIVE t(subplans, parallel_workers_arr) AS (
+  WITH RECURSIVE t(subplans, unroll_helper_arr) AS (
     SELECT
         subplans.* AS subplans
-      , array_append('{}'::INT[], (SELECT COALESCE(
-          (in_plan->0->'Plan'->>'Workers Launched')::INT,
-          (in_plan->0->'Plan'->>'Workers Planned')::INT
-        )))
+      , array_append('{}'::T_UNROLL_HELPER[], (
+            NULL::INT
+          , (SELECT
+              COALESCE(
+                  (in_plan->0->'Plan'->>'Workers Launched')::INT
+                , (in_plan->0->'Plan'->>'Workers Planned')::INT
+              )::INT
+            )::T_UNROLL_HELPER
+          )
+        )
     FROM json_array_elements((SELECT in_plan->0->'Plan'->'Plans')) subplans
     UNION ALL
     SELECT
         subplans
-      , parallel_workers_arr
+      , unroll_helper_arr
     FROM (
       SELECT
           json_array_elements((SELECT subplans->'Plans')) AS subplans
-        , array_append(parallel_workers_arr, COALESCE(
-              (subplans->>'Workers Launched')::INT
-            , (subplans->>'Workers Planned')::INT
-          )) AS parallel_workers_arr
+        , array_append(unroll_helper_arr, (
+              NULL::INT
+            , COALESCE(
+                  (subplans->>'Workers Launched')::INT
+                , (subplans->>'Workers Planned')::INT
+              )::INT
+            )::T_UNROLL_HELPER
+          ) AS unroll_helper_arr
       FROM t
     ) a
   )
@@ -59,17 +77,17 @@ BEGIN
     , COALESCE(
           (rec)."Workers Launched"
         , (rec)."Workers Planned"
-        , (SELECT max(parallel_workers) FROM unnest(parallel_workers_arr) AS parallel_workers)
+        , (SELECT max(parallel_workers) FROM unnest(unroll_helper_arr) AS parallel_workers)
       ) AS "Parallel Workers"
-    , first_occurence_not_null(parallel_workers_arr) AS "Gather Node Depth"
+    , (SELECT gather_node_id FROM first_occurence_not_null(unroll_helper_arr) LIMIT 1) AS "Gather Node Id"
   FROM (
     SELECT
         json_populate_record(null::exp_type, in_plan->0->'Plan') AS rec
-      , '{NULL}'::INT[] AS parallel_workers_arr
+      , '{NULL}'::T_UNROLL_HELPER[] AS unroll_helper_arr
     UNION ALL
     SELECT
         json_populate_record(null::exp_type, subplans) AS rec
-      , parallel_workers_arr
+      , unroll_helper_arr
     FROM t
   ) b;
 
@@ -94,13 +112,14 @@ BEGIN
           id
         , ROUND(COALESCE("Total Cost" - x.child_cost, "Total Cost")::NUMERIC, 2) AS own_cost
         , GREATEST(0, ROUND(COALESCE(
-              "Actual Total Time" *
-                CASE
-                  WHEN ("Parallel Workers" IS NOT NULL) THEN 1
-                  ELSE "Actual Loops"
-                END - x.child_time
-            , "Actual Total Time"
-          )::NUMERIC, 2)) AS own_time
+                "Actual Total Time" *
+                  CASE
+                    WHEN ("Parallel Workers" IS NOT NULL) THEN 1
+                    ELSE "Actual Loops"
+                  END - x.child_time
+              , "Actual Total Time"
+            )::NUMERIC, 2)
+          ) AS own_time
         , x.child_cost AS child_cost
         , "Custom Plan Provider" ILIKE '%s64%shuffle%' AS is_shuffle
       FROM local_query_node_stats
@@ -108,11 +127,12 @@ BEGIN
         SELECT
             COALESCE(SUM("Total Cost"), 0) AS child_cost
           , COALESCE(SUM("Actual Total Time" *
-              CASE
-                WHEN ("Parallel Workers" IS NOT NULL) THEN 1
-                ELSE "Actual Loops"
-              END
-            ), 0) AS child_time
+                CASE
+                  WHEN ("Parallel Workers" IS NOT NULL) THEN 1
+                  ELSE "Actual Loops"
+                END
+              ), 0
+            ) AS child_time
         FROM json_populate_recordset(null::exp_type, local_query_node_stats."Plans")
       ) x ON true
     ) cost_calc
@@ -171,7 +191,7 @@ BEGIN
       , "Original Hash Batches"
       , "Peak Memory Usage"
       , "Parallel Workers"
-      , "Gather Node Depth"
+      , "Gather Node Id"
       , "Output"
     FROM local_query_node_stats
     RETURNING query_node_stats.plan_id AS plan_id

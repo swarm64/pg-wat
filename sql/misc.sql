@@ -1,5 +1,4 @@
 -- Source: https://wiki.postgresql.org/wiki/Aggregate_Median#median.28anyelement.29
-DROP FUNCTION IF EXISTS _final_median CASCADE;
 CREATE FUNCTION _final_median(anyarray) RETURNS float8 AS $$
 WITH q AS (
   SELECT val
