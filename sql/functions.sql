@@ -50,8 +50,8 @@ BEGIN
                   (in_plan->0->'Plan'->>'Workers Launched')::INT
                 , (in_plan->0->'Plan'->>'Workers Planned')::INT
               )::INT
-            )::T_UNROLL_HELPER
-          )
+            )
+          )::T_UNROLL_HELPER
         )
     FROM json_array_elements((SELECT in_plan->0->'Plan'->'Plans')) subplans
     UNION ALL
