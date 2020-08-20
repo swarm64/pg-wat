@@ -43,7 +43,7 @@ BEGIN
   SELECT
     CASE
       WHEN json_typeof(in_plan) = 'array' THEN in_plan
-      WHEN json_typeof(in_plan) = 'array' THEN json_build_array(in_plan)
+      WHEN json_typeof(in_plan) = 'object' THEN json_build_array(in_plan)
     END
   INTO plan;
 
