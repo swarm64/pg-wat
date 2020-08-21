@@ -1,3 +1,6 @@
+SET search_path = pgwat, public;
+
+DROP FUNCTION IF EXISTS pgwat.explain_wrapper(TEXT, BOOL);
 CREATE FUNCTION pgwat.explain_wrapper(sql_query TEXT, run_analyze BOOL) RETURNS TABLE(plan JSON) AS
 $BODY$
 BEGIN
@@ -9,11 +12,13 @@ BEGIN
 END;
 $BODY$ LANGUAGE plpgsql PARALLEL SAFE SET search_path = pgwat, public;
 
+DROP TYPE IF EXISTS pgwat.T_UNROLL_HELPER CASCADE;
 CREATE TYPE pgwat.T_UNROLL_HELPER AS (
     gather_node_id INT
   , parallel_workers INT
 );
 
+DROP FUNCTION IF EXISTS pgwat.first_occurence_not_null(T_UNROLL_HELPER[]);
 CREATE FUNCTION pgwat.first_occurence_not_null(arr T_UNROLL_HELPER[]) RETURNS T_UNROLL_HELPER AS
 $BODY$
 DECLARE
@@ -35,6 +40,7 @@ BEGIN
 END;
 $BODY$ LANGUAGE plpgsql PARALLEL SAFE SET search_path = pgwat, public;
 
+DROP FUNCTION IF EXISTS pgwat.parse_explain_plan(VARCHAR, JSON);
 CREATE FUNCTION pgwat.parse_explain_plan(in_name VARCHAR, in_plan JSON) RETURNS TABLE(plan_id UUID) AS
 $BODY$
 DECLARE
