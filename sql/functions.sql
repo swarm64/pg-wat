@@ -1,4 +1,4 @@
-CREATE FUNCTION explain_wrapper(sql_query TEXT, run_analyze BOOL) RETURNS TABLE(plan JSON) AS
+CREATE FUNCTION pgwat.explain_wrapper(sql_query TEXT, run_analyze BOOL) RETURNS TABLE(plan JSON) AS
 $BODY$
 BEGIN
   IF run_analyze THEN
@@ -7,14 +7,14 @@ BEGIN
     RETURN QUERY EXECUTE 'EXPLAIN (FORMAT JSON) ' || sql_query;
   END IF;
 END;
-$BODY$ LANGUAGE plpgsql PARALLEL SAFE;
+$BODY$ LANGUAGE plpgsql PARALLEL SAFE SET search_path = pgwat, public;
 
-CREATE TYPE T_UNROLL_HELPER AS (
+CREATE TYPE pgwat.T_UNROLL_HELPER AS (
     gather_node_id INT
   , parallel_workers INT
 );
 
-CREATE FUNCTION first_occurence_not_null(arr T_UNROLL_HELPER[]) RETURNS T_UNROLL_HELPER AS
+CREATE FUNCTION pgwat.first_occurence_not_null(arr T_UNROLL_HELPER[]) RETURNS T_UNROLL_HELPER AS
 $BODY$
 DECLARE
   item RECORD;
@@ -33,9 +33,9 @@ BEGIN
 
   RETURN (NULL::INT, NULL::INT)::T_UNROLL_HELPER;
 END;
-$BODY$ LANGUAGE plpgsql PARALLEL SAFE;
+$BODY$ LANGUAGE plpgsql PARALLEL SAFE SET search_path = pgwat, public;
 
-CREATE FUNCTION parse_explain_plan(in_name VARCHAR, in_plan JSON) RETURNS TABLE(plan_id UUID) AS
+CREATE FUNCTION pgwat.parse_explain_plan(in_name VARCHAR, in_plan JSON) RETURNS TABLE(plan_id UUID) AS
 $BODY$
 DECLARE
   plan JSON;
@@ -206,4 +206,5 @@ BEGIN
     RETURNING query_node_stats.plan_id AS plan_id
   ) SELECT new_stats.plan_id FROM new_stats GROUP BY 1;
 END;
-$BODY$ LANGUAGE plpgsql;
+$BODY$ LANGUAGE plpgsql SET search_path = pgwat, public;
+
