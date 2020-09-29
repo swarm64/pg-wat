@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import gzip
 import os
 import re
@@ -17,7 +18,7 @@ def write_plan(plan, db, output, plan_counter):
         output_file.write(plan)
         print(f'Wrote plan to {output_path}')
 
-def write_to_db(plan, db, timestamp):
+def write_to_db(plan, db, timestamp, dsn):
     try:
         query_name = re.search('_Result[0-9]+', plan)[0]
     except (TypeError, IndexError):
@@ -25,7 +26,7 @@ def write_to_db(plan, db, timestamp):
 
     date, time_ = timestamp.split('_')
     time_ = time_.replace('-', ':')
-    conn = psycopg2.connect('postgresql://postgres@si-prod-002.swarm64.com/query_analysis')
+    conn = psycopg2.connect(dsn)
     conn.autocommit = True
     try:
         with conn.cursor() as cursor:
@@ -44,10 +45,16 @@ def write_to_db(plan, db, timestamp):
         conn.close()
 
 if __name__ == '__main__':
-    INPUT = sys.argv[1]
+    args_to_parse = argparse.ArgumentParser()
+    args_to_parse.add_argument('--dsn', help=(
+        'The target DSN to write a plan to. Optional, if not used, write '
+        'to files.'))
+    args_to_parse.add_argument('input_file', help=(
+        'The log file to extract plans from. Can be plain text or gzip.'))
+    args = args_to_parse.parse_args()
 
     log_content = None
-    with gzip.open(INPUT, 'r') as handle:
+    with gzip.open(args.input_file, 'r') as handle:
         try:
             log_content = handle.read()
             log_content = log_content.decode('utf-8')
@@ -70,8 +77,11 @@ if __name__ == '__main__':
             has_plan = False
             print('Plan end')
 
-            # write_plan(plan, db[3:], timestamp, plan_counter)
-            write_to_db(plan, db[3:], timestamp)
+        if args.dsn:
+            write_to_db(plan, db[3:], timestamp, args.dsn)
+        else:
+            write_plan(plan, db[3:], timestamp, plan_counter)
+
             plan_counter += 1
 
             plan = ''
