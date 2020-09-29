@@ -9,6 +9,9 @@ import sys
 import psycopg2
 
 
+LOG_RE=r"([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} [A-Z]+).*(user\S+).*duration: ([0-9\.]+)"
+
+
 def write_plan(plan, db, output, plan_counter):
     output_dir = os.path.join('plans', db)
     os.makedirs(output_dir, exist_ok=True)
@@ -70,27 +73,26 @@ if __name__ == '__main__':
     plan = ''
     has_plan = False
     plan_counter = 1
-    db = ''
+    conn = {}
     timestamp = ''
     for line in log_content.split('\n'):
         if has_plan and re.match('^[0-9]{4}-[0-9]{2}-[0-9]{2}', line):
             has_plan = False
             print('Plan end')
 
-        if args.dsn:
-            write_to_db(plan, db[3:], timestamp, args.dsn)
-        else:
-            write_plan(plan, db[3:], timestamp, plan_counter)
+            if args.dsn:
+                write_to_db(plan, conn['db'], timestamp, args.dsn)
+            else:
+                write_plan(plan, conn['db'], timestamp, plan_counter)
 
             plan_counter += 1
-
             plan = ''
 
         if 'plan:' in line:
-            date, time_, tz, pid, conn, level, _, duration, _, _  = [
-                item for item in line.split(' ') if item]
-            db, user, app, client = conn.split(',')
-            timestamp = f'{date}_{time_}'.replace(':','-')
+            timestamp, conn, duration = re.findall(LOG_RE, line)[0]
+            conn = conn.split(',')
+            conn = [elem.split('=') for elem in conn]
+            conn = {elem[0]: elem[1] for elem in conn}
 
             has_plan = True
             print('Plan begin')
