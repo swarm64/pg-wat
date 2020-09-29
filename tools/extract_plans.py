@@ -27,16 +27,14 @@ def write_to_db(plan, db, timestamp, dsn):
     except (TypeError, IndexError):
         query_name = timestamp
 
-    date, time_ = timestamp.split('_')
-    time_ = time_.replace('-', ':')
     conn = psycopg2.connect(dsn)
     conn.autocommit = True
     try:
         with conn.cursor() as cursor:
             cursor.execute(f'''
-                INSERT INTO varicent_query_plans VALUES(
+                INSERT INTO pgwat.query_plans VALUES(
                     '{db}'
-                  , '{date} {time_}'
+                  , '{timestamp}'
                   , '{query_name}'
                   , $${plan}$$
                 )''')
@@ -52,6 +50,9 @@ if __name__ == '__main__':
     args_to_parse.add_argument('--dsn', help=(
         'The target DSN to write a plan to. Optional, if not used, write '
         'to files.'))
+    args_to_parse.add_argument('--must-have-duration', action='store_true',
+                               default=False, help=(
+        'Plan must have a duration (i.e. EXPLAIN-ANALYZE only)'))
     args_to_parse.add_argument('input_file', help=(
         'The log file to extract plans from. Can be plain text or gzip.'))
     args = args_to_parse.parse_args()
@@ -83,20 +84,26 @@ if __name__ == '__main__':
             if args.dsn:
                 write_to_db(plan, conn['db'], timestamp, args.dsn)
             else:
-                write_plan(plan, conn['db'], timestamp, plan_counter)
+                output = timestamp.replace(' ', '_')
+                write_plan(plan, conn['db'], output, plan_counter)
 
             plan_counter += 1
             plan = ''
 
         if 'plan:' in line:
             timestamp, conn, duration = re.findall(LOG_RE, line)[0]
+            duration = float(duration)
             conn = conn.split(',')
             conn = [elem.split('=') for elem in conn]
             conn = {elem[0]: elem[1] for elem in conn}
 
             has_plan = True
-            print('Plan begin')
-            continue
+            if args.must_have_duration:
+                has_plan = duration > 0.0
+
+            if has_plan:
+                print('Plan begin')
+                continue
 
         if has_plan:
             plan += line

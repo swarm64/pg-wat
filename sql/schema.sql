@@ -1,3 +1,10 @@
+CREATE TABLE query_plans(
+    db VARCHAR(255)
+  , ts TIMESTAMPTZ
+  , query_name VARCHAR(255)
+  , plan JSON
+);
+
 CREATE TABLE query_node_stats(
     id BIGSERIAL PRIMARY KEY
   , query_name VARCHAR(100)
