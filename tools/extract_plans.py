@@ -62,7 +62,7 @@ if __name__ == '__main__':
             print('Not a GZIP file, assuming text')
 
     if not log_content:
-        with open(INPUT, 'r') as log_file:
+        with open(args.input_file, 'r') as log_file:
             log_content = log_file.read()
 
     assert log_content, 'Log file empty?'
