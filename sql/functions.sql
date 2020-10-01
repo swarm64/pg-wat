@@ -40,8 +40,12 @@ BEGIN
 END;
 $BODY$ LANGUAGE plpgsql PARALLEL SAFE SET search_path = pgwat, public;
 
-DROP FUNCTION IF EXISTS pgwat.parse_explain_plan(VARCHAR, JSON);
-CREATE FUNCTION pgwat.parse_explain_plan(in_name VARCHAR, in_plan JSON) RETURNS TABLE(plan_id UUID) AS
+DROP FUNCTION IF EXISTS pgwat.parse_explain_plan(VARCHAR, VARCHAR, JSON);
+CREATE FUNCTION pgwat.parse_explain_plan(
+    in_query_name VARCHAR
+  , in_db_name VARCHAR
+  , in_plan JSON
+) RETURNS TABLE(plan_id UUID) AS
 $BODY$
 DECLARE
   plan JSON;
@@ -162,7 +166,8 @@ BEGIN
     INSERT INTO query_node_stats
     SELECT
         nextval('query_node_stats_id_seq'::regclass)
-      , in_name
+      , in_query_name
+      , in_db_name
       , (SELECT uuid_in(md5(random()::text || clock_timestamp()::text)::cstring))
       , id
       , "Node Type"

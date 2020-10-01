@@ -5,9 +5,10 @@ CREATE TABLE query_plans(
   , plan JSON
 );
 
-CREATE TABLE query_node_stats(
+CREATE TABLE pgwat.query_node_stats(
     id BIGSERIAL PRIMARY KEY
   , query_name VARCHAR(100)
+  , db_name VARCHAR(100)
   , plan_id UUID
   , node_id INTEGER
   , node_type VARCHAR(100)
