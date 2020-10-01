@@ -18,9 +18,11 @@ The table can be used to calculate statistics around queries and their plans.
     ```
     SELECT pgwat.parse_explain_plan(
         'my fancy plan'
+        'my db'
       , $$<json of plan>$$
     );
     ```
 
 3. After using `pgwat.parse_explain_plan`, you can query
-   `pgwat.query_node_stats` to extract all information you need.
+   `pgwat.query_node_stats` to extract all information you need. There are
+   some functions in `sql/analytics` which you can load and then use as well.
