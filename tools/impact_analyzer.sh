@@ -5,7 +5,7 @@ set -e
 IA_SQL="https://raw.githubusercontent.com/swarm64/pg-wat/master/sql/analytics/impact_analyzer.sql"
 
 function help {
-   echo "Usage: $0 --dsn=<DSN to connect>"
+   echo "Usage: ./impact_analyzer.sh --dsn=<DSN to connect>"
    exit 0
 }
 
