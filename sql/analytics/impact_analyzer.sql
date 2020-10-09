@@ -32,7 +32,7 @@ BEGIN
     , COALESCE(MIN(max_parallelism), 0) AS min_parallelism
     , COALESCE(ROUND(AVG(max_parallelism)), 0) AS avg_parallelism
   FROM query_stats LOOP
-    RAISE NOTICE '%', to_json(row);
+    RAISE NOTICE 'Query: %', to_json(row);
   END LOOP;
 
   FOR row IN SELECT
@@ -49,7 +49,7 @@ BEGIN
   , SUM(updates) AS updates
   , SUM(deletes) AS deletes
     FROM workload_stats LOOP
-    RAISE NOTICE '%', to_json(row);
+    RAISE NOTICE 'IO: %', to_json(row);
   END LOOP;
 END;
 $$ LANGUAGE plpgsql;
