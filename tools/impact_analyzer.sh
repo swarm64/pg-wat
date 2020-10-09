@@ -57,7 +57,7 @@ exec 3< <(run_impact_analyzer)
 tput clear
 declare -Ag metrics
 while read line <&3; do
-   vars=`echo $line | sed 's/"//g' | grep -Po '([a-z_]+):([0-9]+)'` || true
+   vars=`echo $line | sed 's/"//g' | grep -Po '([a-z_]+):([0-9\.]+)'` || true
    if [[ -z $vars ]]; then
       continue
    fi
@@ -66,9 +66,6 @@ while read line <&3; do
       metrics[$key]=${value}
    done <<<$vars
 
-   # for key in "${!metrics[@]}"; do
-   #    echo "${key} -> ${metrics[$key]}"
-   # done
    tput cup 0 0
    tput el
    tput bold
@@ -92,19 +89,11 @@ while read line <&3; do
    printf "\nIO\n"
 
    tput sgr0
-   printf "      |       Disk |      Cache |      Ratio |\n"
-   printf "Heap  | %10d | %10d | %10d |\n" \
+   printf "      |       Disk |      Cache | Ratio |\n"
+   printf "Heap  | %10d | %10d |  %.2f |\n" \
       ${metrics[heap_disk]} ${metrics[heap_cache]} ${metrics[heap_ratio]}
-   printf "Index | %10d | %10d | %10d |\n" \
+   printf "Index | %10d | %10d |  %.2f |\n" \
       ${metrics[idx_disk]} ${metrics[idx_cache]} ${metrics[idx_ratio]}
 
    tput cup 0 0
 done
-
-# heap_cache -> 1312989
-# heap_ratio -> 1
-# idx_cache -> 2639530
-# idx_ratio -> 1
-# deletes -> 5192
-# idx_disk -> 1841
-# heap_disk -> 697
