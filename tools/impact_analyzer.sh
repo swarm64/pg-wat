@@ -2,7 +2,9 @@
 
 set -e
 
-IA_SQL="https://raw.githubusercontent.com/swarm64/pg-wat/master/sql/analytics/impact_analyzer.sql"
+IA_SQL_GH="https://raw.githubusercontent.com/swarm64/pg-wat/master/sql/analytics/impact_analyzer.sql"
+IA_SQL_LOCAL="./sql/analytics/impact_analyzer.sql"
+LOCAL=0
 
 function help {
    echo "Usage: ./impact_analyzer.sh --dsn=<DSN to connect>"
@@ -30,8 +32,13 @@ case $arg in
    DSN="${arg#*=}"
    shift
    ;;
+   --local)
+   LOCAL=1
+   shift
+   ;;
    --help)
    help
+   shift
    ;;
    *)
    ;;
@@ -48,8 +55,11 @@ function run_impact_analyzer {
 }
 
 echo "Deploying impact analyzer SQL"
-# curl $IA_SQL | psql $DSN > /dev/null
-cat $IA_SQL | psql $DSN > /dev/null
+if [[ $LOCAL == 0 ]]; then
+   curl $IA_SQL_GH | psql $DSN > /dev/null
+else
+   cat $IA_SQL_LOCAL | psql $DSN > /dev/null
+fi
 
 echo "Running impact analyzer on target DB"
 exec 3< <(run_impact_analyzer)
@@ -57,7 +67,7 @@ exec 3< <(run_impact_analyzer)
 tput clear
 declare -Ag metrics
 while read line <&3; do
-   vars=`echo $line | sed 's/"//g' | grep -Po '([a-z_]+):([0-9\.]+)'` || true
+   vars=`echo $line | sed 's/"//g' | grep -Po '([a-z_]+):([0-9:\.]+)'` || true
    if [[ -z $vars ]]; then
       continue
    fi
@@ -68,6 +78,12 @@ while read line <&3; do
 
    tput cup 0 0
    tput el
+   tput bold
+   printf "Duration: "
+
+   tput sgr0
+   printf "%s\n\n" ${metrics[duration]}
+
    tput bold
    printf "Queries\n"
 

@@ -18,13 +18,14 @@ RETURNS BOOL AS $$
   END
 $$ LANGUAGE SQL PARALLEL SAFE;
 
-DROP PROCEDURE IF EXISTS _s64da_impact_analyzer_print();
-CREATE PROCEDURE _s64da_impact_analyzer_print() AS $$
+DROP PROCEDURE IF EXISTS _s64da_impact_analyzer_print(INTERVAL);
+CREATE PROCEDURE _s64da_impact_analyzer_print(duration INTERVAL) AS $$
 DECLARE
   row RECORD;
 BEGIN
   FOR row IN SELECT
       COUNT(*) AS num_queries
+    , duration
     , SUM(CASE WHEN _within_range(query_start, query_stop, NULL, '60s'::INTERVAL) THEN 1 ELSE 0 END) AS fast
     , SUM(CASE WHEN _within_range(query_start, query_stop, '60s'::INTERVAL, '15min'::INTERVAL) THEN 1 ELSE 0 END) AS medium
     , SUM(CASE WHEN _within_range(query_start, query_stop, '15min'::INTERVAL, NULL) THEN 1 ELSE 0 END) AS slow
@@ -59,9 +60,12 @@ CREATE PROCEDURE s64da_impact_analyzer() AS $$
 DECLARE
   own_datname VARCHAR;
   own_pid INT;
+  ts_start TIMESTAMPTZ;
+  duration INTERVAL;
 BEGIN
   SELECT current_database() INTO own_datname;
   SELECT pg_backend_pid() INTO own_pid;
+  SELECT NOW() INTO ts_start;
 
   RAISE NOTICE 'S64 DA Impact Analyzer on DB: %s', own_datname;
 
@@ -161,7 +165,8 @@ BEGIN
       JOIN base_values bv USING(relid)
       WHERE ws.relid = src.relid;
 
-      CALL _s64da_impact_analyzer_print();
+      SELECT NOW() - ts_start INTO duration;
+      CALL _s64da_impact_analyzer_print(duration);
       PERFORM pg_sleep(1);
 
     EXCEPTION WHEN operator_intervention THEN
