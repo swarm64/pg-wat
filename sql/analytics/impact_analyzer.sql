@@ -63,6 +63,8 @@ DECLARE
   ts_start TIMESTAMPTZ;
   duration INTERVAL;
 BEGIN
+  SET swarm64da.enable_auto_analyze = off;
+
   SELECT current_database() INTO own_datname;
   SELECT pg_backend_pid() INTO own_pid;
   SELECT NOW() INTO ts_start;
