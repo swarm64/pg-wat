@@ -67,14 +67,21 @@ exec 3< <(run_impact_analyzer)
 tput clear
 declare -Ag metrics
 while read line <&3; do
+   if ! [[ ${line} =~ Query|IO ]]; then
+       continue
+   fi
+
    vars=`echo $line | sed 's/"//g' | grep -Po '([a-z_]+):([0-9:\.]+)'` || true
    if [[ -z $vars ]]; then
       continue
    fi
+   echo $vars
 
-   while IFS=: read -r key value; do
-      metrics[$key]=${value}
-   done <<<$vars
+   for var in $vars; do
+        while IFS=: read -r key value; do
+            metrics[$key]=${value}
+        done <<<$var
+   done
 
    tput cup 0 0
    tput el
