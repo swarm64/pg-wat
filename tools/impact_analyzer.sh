@@ -4,7 +4,7 @@ set -e
 
 IA_SQL_GH="https://raw.githubusercontent.com/swarm64/pg-wat/master/sql/analytics/impact_analyzer.sql"
 IA_SQL_LOCAL="./sql/analytics/impact_analyzer.sql"
-LOCAL=0
+LOCAL=1
 
 function help {
    echo "Usage: ./impact_analyzer.sh --dsn=<DSN to connect>"
@@ -64,6 +64,9 @@ fi
 echo "Running impact analyzer on target DB"
 exec 3< <(run_impact_analyzer)
 
+output_dir=$(mktemp -d -t s64-ia-XXXXXXXXXX)
+touch ${output_dir}/{query,io}.log
+
 tput clear
 declare -Ag metrics
 while read line <&3; do
@@ -75,13 +78,21 @@ while read line <&3; do
    if [[ -z $vars ]]; then
       continue
    fi
-   echo $vars
 
    for var in $vars; do
         while IFS=: read -r key value; do
             metrics[$key]=${value}
         done <<<$var
    done
+
+   timestamp=$(date +%s)
+   if [[ ${line} =~ Query ]]; then
+       echo $timestamp $vars >> ${output_dir}/query.log
+   fi
+
+   if [[ ${line} =~ IO ]]; then
+       echo $timestamp duration:${metrics[duration]} $vars >> ${output_dir}/io.log
+   fi
 
    tput cup 0 0
    tput el
@@ -117,6 +128,8 @@ while read line <&3; do
       ${metrics[heap_disk]} ${metrics[heap_cache]} ${metrics[heap_ratio]}
    printf "Index | %10d | %10d |  %.2f |\n" \
       ${metrics[idx_disk]} ${metrics[idx_cache]} ${metrics[idx_ratio]}
+
+   printf "\nLog files at: ${output_dir}"
 
    tput cup 0 0
 done
