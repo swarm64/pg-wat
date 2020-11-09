@@ -18,7 +18,7 @@ The table can be used to calculate statistics around queries and their plans.
     ```
     SELECT pgwat.parse_explain_plan(
         'my fancy plan'
-        'my db'
+      , 'my db'
       , $$<json of plan>$$
     );
     ```
