@@ -4,7 +4,7 @@ set -e
 
 IA_SQL_GH="https://raw.githubusercontent.com/swarm64/pg-wat/master/sql/analytics/impact_analyzer.sql"
 IA_SQL_LOCAL="./sql/analytics/impact_analyzer.sql"
-LOCAL=1
+LOCAL=0
 
 function help {
    echo "Usage: ./impact_analyzer.sh --dsn=<DSN to connect>"
