@@ -47,8 +47,11 @@ BEGIN
 --  , SUM(toast_blks_hit - toast_blks_hit_base) AS toast_cache
 --  , _calculate_cache_ratio(SUM(toast_blks_read), SUM(toast_blks_hit)) AS toast_ratio
   , SUM(inserts) AS inserts
+  , SUM(inserts_time) AS inserts_time
   , SUM(updates) AS updates
+  , SUM(updates_time) AS updates_time
   , SUM(deletes) AS deletes
+  , SUM(deletes_time) AS deletes_time
     FROM workload_stats LOOP
     RAISE NOTICE 'IO: %', to_json(row);
   END LOOP;
@@ -112,8 +115,11 @@ BEGIN
     , 0::BIGINT AS toast_blks_read
     , 0::BIGINT AS toast_blks_hit
     , 0::BIGINT AS inserts
+    , 0::BIGINT AS inserts_time
     , 0::BIGINT AS updates
+    , 0::BIGINT AS updates_time
     , 0::BIGINT AS deletes
+    , 0::BIGINT AS deletes_time
   FROM pg_statio_user_tables stat_io
   JOIN pg_stat_user_tables stat USING(relid)
   WHERE stat_io.schemaname NOT LIKE 'pg_temp%';
@@ -163,6 +169,9 @@ BEGIN
       SET inserts = src.n_tup_ins - bv.n_tup_ins
         , updates = src.n_tup_upd - bv.n_tup_upd
         , deletes = src.n_tup_del - bv.n_tup_del
+        , inserts_time = CASE WHEN (src.n_tup_ins - bv.n_tup_ins) > inserts THEN inserts_time + 1 ELSE inserts_time END
+        , updates_time = CASE WHEN (src.n_tup_upd - bv.n_tup_upd) > updates THEN updates_time + 1 ELSE updates_time END
+        , deletes_time = CASE WHEN (src.n_tup_del - bv.n_tup_del) > deletes THEN deletes_time + 1 ELSE deletes_time END
       FROM pg_stat_user_tables src
       JOIN base_values bv USING(relid)
       WHERE ws.relid = src.relid;

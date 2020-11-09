@@ -112,6 +112,9 @@ while read line <&3; do
    printf "Tuples:            | INSERT: %10d | UPDATE: %10d | DELETE: %10d |\n" \
       ${metrics[inserts]} ${metrics[updates]} ${metrics[deletes]}
 
+   printf "Times:             | INSERT: %10d | UPDATE: %10d | DELETE: %10d |\n" \
+      ${metrics[inserts_time]} ${metrics[updates_time]} ${metrics[deletes_time]}
+
    tput bold
    printf "\nParallelism\n"
 
